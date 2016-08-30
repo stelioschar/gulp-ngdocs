@@ -536,7 +536,7 @@ Doc.prototype = {
       });
 
       (self['html_usage_' + self.ngdoc] || function() {
-        throw new Error("Don't know how to format @ngdoc: " + self.ngdoc +"\n Issue is located in file: "+self.file+"\n Line #: "+self.line);
+        throw new Error("Don't know how to format @ngdoc: " + self.ngdoc);
       }).call(self, dom);
 
       dom.h('Example', self.example, dom.html);
@@ -586,6 +586,91 @@ Doc.prototype = {
       dom.html('<thead>');
       dom.html('<tr>');
       dom.html('<th>Param</th>');
+      dom.html('<th>Type</th>');
+      dom.html('<th>Details</th>');
+      dom.html('</tr>');
+      dom.html('</thead>');
+      dom.html('<tbody>');
+      processParams(params);
+      function processParams(params) {
+        for(var i=0;i<params.length;i++) {
+          param = params[i];
+          var name = param.name;
+          var types = param.type;
+          if(types[0]=='(') {
+            types = types.substr(1);
+          }
+
+          var limit = types.length - 1;
+          if(types.charAt(limit) == ')' && types.charAt(limit-1) != '(') {
+            types = types.substr(0,limit);
+          }
+          types = types.split(/\|(?![\(\)\w\|\s]+>)/);
+          if (param.optional) {
+            name += ' <div><em>(optional)</em></div>';
+          }
+          dom.html('<tr>');
+          dom.html('<td>' + name + '</td>');
+          dom.html('<td>');
+          for(var j=0;j<types.length;j++) {
+            var type = types[j];
+            dom.html('<a href="" class="' + self.prepare_type_hint_class_name(type) + '">');
+            dom.text(type);
+            dom.html('</a>');
+          }
+
+          dom.html('</td>');
+          dom.html('<td>');
+          dom.html(param.description);
+          if (param.default) {
+            dom.html(' <p><em>(default: ' + param.default + ')</em></p>');
+          }
+          if (param.properties) {
+//            dom.html('<table class="variables-matrix table table-bordered table-striped">');
+            dom.html('<table>');
+            dom.html('<thead>');
+            dom.html('<tr>');
+            dom.html('<th>Property</th>');
+            dom.html('<th>Type</th>');
+            dom.html('<th>Details</th>');
+            dom.html('</tr>');
+            dom.html('</thead>');
+            dom.html('<tbody>');
+            processParams(param.properties);
+            dom.html('</tbody>');
+            dom.html('</table>');
+          }
+          dom.html('</td>');
+          dom.html('</tr>');
+        };
+      }
+      dom.html('</tbody>');
+      dom.html('</table>');
+    }
+  },
+
+  html_usage_bindings: function(dom) {
+    var self = this;
+    var params = this.param ? this.param : [];
+    if(this.animations) {
+      dom.h('Animations', this.animations, function(animations){
+        dom.html('<ul>');
+        var animations = animations.split("\n");
+        animations.forEach(function(ani) {
+          dom.html('<li>');
+          dom.text(ani);
+          dom.html('</li>');
+        });
+        dom.html('</ul>');
+      });
+      // dom.html('<a href="api/ngAnimate.$animate">Click here</a> to learn more about the steps involved in the animation.');
+    }
+    if(params.length > 0) {
+      dom.html('<h2>Bindings</h2>');
+      dom.html('<table class="variables-matrix table table-bordered table-striped">');
+      dom.html('<thead>');
+      dom.html('<tr>');
+      dom.html('<th>Binding</th>');
       dom.html('<th>Type</th>');
       dom.html('<th>Details</th>');
       dom.html('</tr>');
@@ -794,6 +879,46 @@ Doc.prototype = {
 
   },
 
+  html_usage_component: function(dom){
+    //this.html_usage_interface(dom)
+    var self = this;
+    dom.h('Usage', function() {
+          dom.code(function() {
+            dom.text('<');
+            dom.text(dashCase(self.shortName));
+            
+            renderParams('\n       ', '="', '"');
+            dom.text('>\n</');
+            dom.text(dashCase(self.shortName));
+            dom.text('>');
+          });
+      self.html_usage_componentInfo(dom);
+      self.html_usage_bindings(dom);
+    });
+
+    self.method_properties_events(dom);
+
+    function renderParams(prefix, infix, suffix, skipSelf) {
+      (self.param||[]).forEach(function(param) {
+        var skip = skipSelf && (param.name == self.shortName || param.name.indexOf(self.shortName + '|') == 0);
+        if (!skip) {
+          dom.text(prefix);
+          dom.text(param.optional ? '[' : '');
+          var parts = param.name.split('|');
+          dom.text(dashCase(parts[skipSelf ? 0 : 1] || parts[0]));
+        }
+        if (BOOLEAN_ATTR[param.name]) {
+          dom.text(param.optional ? ']' : '');
+        } else {
+          dom.text(BOOLEAN_ATTR[param.name] ? '' : infix );
+          dom.text(('{' + param.type + '}').replace(/^\{\'(.*)\'\}$/, '$1'));
+          dom.text(suffix);
+          dom.text(param.optional && !skip ? ']' : '');
+        }
+      });
+    } 
+  },
+
   html_usage_filter: function(dom){
     var self = this;
     dom.h('Usage', function() {
@@ -865,6 +990,22 @@ Doc.prototype = {
     }
   },
 
+  html_usage_componentInfo: function(dom) {
+    var self = this;
+    var list = [];
+
+
+    if (self.bindings !== undefined) {
+      list.push('This component use:');
+    }
+
+    if (list.length) {
+      dom.h('Component info', function() {
+        dom.ul(list);
+      });
+    }
+  },
+
   html_usage_overview: function(dom){
     dom.html(this.description);
   },
@@ -904,6 +1045,7 @@ Doc.prototype = {
   html_usage_controller: function(dom) {
     this.html_usage_interface(dom)
   },
+  
 
   method_properties_events: function(dom) {
     var self = this;
@@ -988,6 +1130,7 @@ var GLOBALS = /^angular\.([^\.]+)$/,
     MODULE = /^([^\.]+)$/,
     MODULE_MOCK = /^angular\.mock\.([^\.]+)$/,
     MODULE_CONTROLLER = /^(.+)\.controllers?:([^\.]+)$/,
+    MODULE_COMPONENT = /^(.+)\.components?:([^\.]+)$/,
     MODULE_DIRECTIVE = /^(.+)\.directives?:([^\.]+)$/,
     MODULE_DIRECTIVE_INPUT = /^(.+)\.directives?:input\.([^\.]+)$/,
     MODULE_CUSTOM = /^(.+)\.([^\.]+):([^\.]+)$/,
@@ -1038,6 +1181,8 @@ function title(doc) {
     return makeTitle('angular.mock.' + match[1], 'API', 'module', 'ng');
   } else if (match = text.match(MODULE_CONTROLLER) && doc.type === 'controller') {
     return makeTitle(match[2], 'controller', 'module', match[1]);
+  } else if (match = text.match(MODULE_COMPONENT)) {
+    return makeTitle(match[2], 'component', 'module', match[1]);
   } else if (match = text.match(MODULE_DIRECTIVE)) {
     return makeTitle(match[2], 'directive', 'module', match[1]);
   } else if (match = text.match(MODULE_DIRECTIVE_INPUT)) {
