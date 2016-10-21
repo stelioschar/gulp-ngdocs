@@ -416,8 +416,8 @@ docsApp.controller.DocsController = function($scope, $location, $window, section
       } else if (match = id.match(MODULE_FILTER)) {
         module(page.moduleName || match[1], section).filters.push(page);
       } else if (match = id.match(MODULE_CONTROLLER) && page.type === 'controller') {
-        module(page.moasdfduleName || match[1], section).controllers.push(page);
-      } else if (match = id.match(MODULE_COMPONENT)) {
+        module(page.moduleName || match[1], section).controllers.push(page);
+        } else if (match = id.match(MODULE_COMPONENT)) {
         module(page.moduleName || match[1], section).components.push(page);
       } else if (match = id.match(MODULE_DIRECTIVE)) {
         module(page.moduleName || match[1], section).directives.push(page);
